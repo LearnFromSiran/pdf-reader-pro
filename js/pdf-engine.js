@@ -56,6 +56,7 @@ const PDFEngine = (function() {
           <canvas class="pdf-canvas"></canvas>
           <div class="text-layer"></div>
           <div class="annotation-layer" data-page="${i}"></div>
+          <div class="form-layer"></div>
         `;
         pagesWrapper.appendChild(wrapper);
       }
@@ -155,6 +156,7 @@ const PDFEngine = (function() {
         <canvas class="pdf-canvas"></canvas>
         <div class="text-layer"></div>
         <div class="annotation-layer" data-page="${i}"></div>
+        <div class="form-layer"></div>
       `;
     }
     await renderPageRange(1, Math.min(state.totalPages, 5));

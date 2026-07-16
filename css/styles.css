@@ -715,7 +715,45 @@ html, body {
 
 .install-dismiss:hover { color: var(--text-primary); }
 
+/* Form Layer */
+.form-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.form-layer input,
+.form-layer textarea,
+.form-layer select {
+  pointer-events: auto;
+}
+
+.form-layer input[type="checkbox"],
+.form-layer input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+/* Signature Overlay */
+.signature-overlay {
+  position: absolute;
+  pointer-events: auto;
+  cursor: move;
+  z-index: 100;
+  user-select: none;
+  border: 1px dashed transparent;
+  transition: border-color 0.15s ease;
+}
+
+.signature-overlay:hover {
+  border-color: var(--accent);
+}
+
 /* Responsive */
+@media (max-width: 1024px) {
 @media (max-width: 1024px) {
   .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 90; box-shadow: 2px 0 10px rgba(0,0,0,0.3); }
   .sidebar.collapsed { transform: translateX(-100%); }

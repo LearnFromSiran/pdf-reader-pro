@@ -49,35 +49,31 @@ const App = (function() {
     installPrompt: document.getElementById('install-prompt'),
     btnInstallAccept: document.getElementById('btn-install-accept'),
     btnInstallDismiss: document.getElementById('btn-install-dismiss'),
+    btnFormFill: document.getElementById('btn-form-fill'),
+    btnSignature: document.getElementById('btn-signature'),
     docInfo: document.getElementById('doc-info'),
     statusSize: document.getElementById('status-size'),
     statusWords: document.getElementById('status-words')
   };
 
   function init() {
-    // Init icons
     lucide.createIcons();
-
-    // Init modules
     AnnotationModule.init();
-
-    // Event listeners
     setupFileHandling();
     setupNavigation();
     setupZoom();
     setupRotation();
     setupSearch();
     setupAnnotations();
+    setupForms();
+    setupSignatures();
     setupSidebar();
     setupDownloadPrint();
     setupPWA();
     setupKeyboard();
     setupScroll();
-
-    // Disable nav controls initially
     updateNavState(false);
 
-    // Check if launched with a file (via file handler API)
     if ('launchQueue' in window) {
       launchQueue.setConsumer(async (launchParams) => {
         if (launchParams.files && launchParams.files.length > 0) {
@@ -88,7 +84,6 @@ const App = (function() {
     }
   }
 
-  // --- File Handling ---
   function setupFileHandling() {
     els.btnOpen.addEventListener('click', () => els.fileInput.click());
     els.btnDropOpen.addEventListener('click', () => els.fileInput.click());
@@ -96,7 +91,6 @@ const App = (function() {
       if (e.target.files[0]) loadFile(e.target.files[0]);
     });
 
-    // Drag & drop
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
       document.body.addEventListener(event, (e) => { e.preventDefault(); e.stopPropagation(); });
     });
@@ -119,7 +113,8 @@ const App = (function() {
     PDFEngine.setFilename(file.name);
     if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
     currentBlobUrl = URL.createObjectURL(file);
-    const success = await PDFEngine.loadPDF(currentBlobUrl);
+
+    const success = await PasswordModule.tryLoadWithPassword(currentBlobUrl);
 
     if (success) {
       els.dropZone.hidden = true;
@@ -129,11 +124,17 @@ const App = (function() {
       updateNavState(true);
       generateThumbnails();
       lucide.createIcons();
+      // Render forms for visible pages
+      const total = PDFEngine.getTotalPages();
+      for (let i = 1; i <= Math.min(5, total); i++) {
+        FormFillingModule.renderFormsForPage(i);
+      }
     }
   }
     PDFEngine.setFilename(file.name);
-    const url = URL.createObjectURL(file);
-    const success = await PDFEngine.loadPDF(url);
+    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+    currentBlobUrl = URL.createObjectURL(file);
+    const success = await PDFEngine.loadPDF(currentBlobUrl);
 
     if (success) {
       els.dropZone.hidden = true;
@@ -154,7 +155,6 @@ const App = (function() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   }
 
-  // --- Thumbnails ---
   async function generateThumbnails() {
     const pdf = PDFEngine.getPDF();
     const total = PDFEngine.getTotalPages();
@@ -177,7 +177,6 @@ const App = (function() {
 
       els.thumbnailContainer.appendChild(item);
 
-      // Render thumbnail
       try {
         const page = await pdf.getPage(i);
         const thumbScale = 160 / page.getViewport({ scale: 1 }).width;
@@ -192,7 +191,6 @@ const App = (function() {
     }
   }
 
-  // --- Navigation ---
   function setupNavigation() {
     els.btnFirstPage.addEventListener('click', () => PDFEngine.goToPage(1));
     els.btnPrevPage.addEventListener('click', () => PDFEngine.goToPage(PDFEngine.getCurrentPage() - 1));
@@ -212,6 +210,16 @@ const App = (function() {
       els.btnFirstPage, els.btnPrevPage, els.btnNextPage, els.btnLastPage,
       els.btnZoomIn, els.btnZoomOut, els.zoomSelect, els.btnFitWidth, els.btnFitPage,
       els.btnRotateCw, els.btnRotateCcw, els.btnSearch, els.btnAnnotate,
+      els.btnFormFill, els.btnSignature, els.btnDownload, els.btnPrint
+    ];
+    buttons.forEach(btn => btn.disabled = !enabled);
+    if (!enabled) els.pageInput.disabled = true;
+    else els.pageInput.disabled = false;
+  }
+    const buttons = [
+      els.btnFirstPage, els.btnPrevPage, els.btnNextPage, els.btnLastPage,
+      els.btnZoomIn, els.btnZoomOut, els.zoomSelect, els.btnFitWidth, els.btnFitPage,
+      els.btnRotateCw, els.btnRotateCcw, els.btnSearch, els.btnAnnotate,
       els.btnDownload, els.btnPrint
     ];
     buttons.forEach(btn => btn.disabled = !enabled);
@@ -219,8 +227,39 @@ const App = (function() {
     else els.pageInput.disabled = false;
   }
 
-  // --- Zoom ---
   function setupZoom() {
+    els.btnZoomIn.addEventListener('click', () => {
+      PDFEngine.zoom(PDFEngine.getScale() + 0.25);
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+    els.btnZoomOut.addEventListener('click', () => {
+      PDFEngine.zoom(PDFEngine.getScale() - 0.25);
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+    els.zoomSelect.addEventListener('change', () => {
+      PDFEngine.zoom(els.zoomSelect.value === 'fit-width' || els.zoomSelect.value === 'fit-page' ? els.zoomSelect.value : parseFloat(els.zoomSelect.value));
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+    els.btnFitWidth.addEventListener('click', () => {
+      PDFEngine.zoom('fit-width');
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+    els.btnFitPage.addEventListener('click', () => {
+      PDFEngine.zoom('fit-page');
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+  }
+
+  function reRenderFormsForVisible() {
+    const pages = document.querySelectorAll('.pdf-page-wrapper');
+    const containerRect = els.viewerContainer.getBoundingClientRect();
+    pages.forEach(wrapper => {
+      const rect = wrapper.getBoundingClientRect();
+      if (rect.bottom >= containerRect.top && rect.top <= containerRect.bottom) {
+        FormFillingModule.renderFormsForPage(parseInt(wrapper.dataset.page));
+      }
+    });
+  }
     els.btnZoomIn.addEventListener('click', () => PDFEngine.zoom(PDFEngine.getScale() + 0.25));
     els.btnZoomOut.addEventListener('click', () => PDFEngine.zoom(PDFEngine.getScale() - 0.25));
     els.zoomSelect.addEventListener('change', () => PDFEngine.zoom(els.zoomSelect.value === 'fit-width' || els.zoomSelect.value === 'fit-page' ? els.zoomSelect.value : parseFloat(els.zoomSelect.value)));
@@ -228,13 +267,20 @@ const App = (function() {
     els.btnFitPage.addEventListener('click', () => PDFEngine.zoom('fit-page'));
   }
 
-  // --- Rotation ---
   function setupRotation() {
+    els.btnRotateCw.addEventListener('click', () => {
+      PDFEngine.rotate(90);
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+    els.btnRotateCcw.addEventListener('click', () => {
+      PDFEngine.rotate(-90);
+      setTimeout(() => reRenderFormsForVisible(), 300);
+    });
+  }
     els.btnRotateCw.addEventListener('click', () => PDFEngine.rotate(90));
     els.btnRotateCcw.addEventListener('click', () => PDFEngine.rotate(-90));
   }
 
-  // --- Search ---
   function setupSearch() {
     els.btnSearch.addEventListener('click', () => SearchModule.toggle());
     els.btnCloseSearch.addEventListener('click', () => SearchModule.close());
@@ -252,7 +298,6 @@ const App = (function() {
     });
   }
 
-  // --- Annotations ---
   function setupAnnotations() {
     els.btnAnnotate.addEventListener('click', () => AnnotationModule.toggle());
     els.btnHighlight.addEventListener('click', () => AnnotationModule.setTool('highlight'));
@@ -264,13 +309,24 @@ const App = (function() {
     els.colorPicker.addEventListener('change', () => AnnotationModule.setColor(els.colorPicker.value));
   }
 
-  // --- Sidebar ---
+  function setupForms() {
+    els.btnFormFill.addEventListener('click', () => {
+      const total = PDFEngine.getTotalPages();
+      for (let i = 1; i <= total; i++) {
+        FormFillingModule.renderFormsForPage(i);
+      }
+    });
+  }
+
+  function setupSignatures() {
+    els.btnSignature.addEventListener('click', () => SignatureModule.toggleSignaturePad());
+  }
+
   function setupSidebar() {
     els.btnSidebar.addEventListener('click', () => els.sidebar.classList.toggle('collapsed'));
     els.btnCloseSidebar.addEventListener('click', () => els.sidebar.classList.add('collapsed'));
   }
 
-  // --- Download & Print ---
   function setupDownloadPrint() {
     els.btnDownload.addEventListener('click', () => {
       if (!currentBlobUrl) {
@@ -288,7 +344,6 @@ const App = (function() {
     });
   }
 
-  // --- PWA ---
   function setupPWA() {
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
@@ -319,13 +374,11 @@ const App = (function() {
       els.installPrompt.hidden = true;
     });
 
-    // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
       els.btnInstall.hidden = true;
     }
   }
 
-  // --- Keyboard ---
   function setupKeyboard() {
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -380,7 +433,6 @@ const App = (function() {
     });
   }
 
-  // --- Scroll ---
   function setupScroll() {
     els.viewerContainer.addEventListener('scroll', () => {
       const pages = document.querySelectorAll('.pdf-page-wrapper');
@@ -397,7 +449,6 @@ const App = (function() {
       }
 
       if (currentPage !== PDFEngine.getCurrentPage()) {
-        // Update current page without scrolling
         PDFEngine.setState({ currentPage });
         PDFEngine.renderPageRange(currentPage, Math.min(currentPage + 4, PDFEngine.getTotalPages()));
         document.getElementById('page-input').value = currentPage;
@@ -405,6 +456,10 @@ const App = (function() {
         document.querySelectorAll('.thumbnail-item').forEach(t => t.classList.remove('active'));
         const activeThumb = document.querySelector(`.thumbnail-item[data-page="${currentPage}"]`);
         if (activeThumb) activeThumb.classList.add('active');
+        // Render forms for newly visible pages
+        for (let i = currentPage; i <= Math.min(currentPage + 4, PDFEngine.getTotalPages()); i++) {
+          FormFillingModule.renderFormsForPage(i);
+        }
       }
     });
   }
@@ -412,5 +467,4 @@ const App = (function() {
   return { init };
 })();
 
-// Start the app when DOM is ready
 document.addEventListener('DOMContentLoaded', App.init);
