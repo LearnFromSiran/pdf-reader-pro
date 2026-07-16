@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Reader Pro</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/lucide.min.js"></script>
+</head>
+<body>
+  <!-- App Container -->
+  <div id="app">
+    <!-- Toolbar -->
+    <header id="toolbar" class="toolbar">
+      <div class="toolbar-row toolbar-primary">
+        <div class="toolbar-group toolbar-left">
+          <button id="btn-sidebar" class="toolbar-btn" title="Toggle Sidebar" data-lucide="panel-left"></button>
+          <div class="toolbar-divider"></div>
+          <button id="btn-open" class="toolbar-btn" title="Open File" data-lucide="folder-open"></button>
+          <input type="file" id="file-input" accept=".pdf" hidden>
+          <div class="toolbar-divider"></div>
+          <span class="app-title">PDF Reader Pro</span>
+        </div>
+        
+        <div class="toolbar-group toolbar-center">
+          <button id="btn-zoom-out" class="toolbar-btn" title="Zoom Out" data-lucide="zoom-out"></button>
+          <select id="zoom-select" class="toolbar-select" title="Zoom Level">
+            <option value="0.25">25%</option>
+            <option value="0.5">50%</option>
+            <option value="0.75">75%</option>
+            <option value="1">100%</option>
+            <option value="1.25">125%</option>
+            <option value="1.5">150%</option>
+            <option value="2">200%</option>
+            <option value="3">300%</option>
+            <option value="4">400%</option>
+            <option value="fit-width">Fit Width</option>
+            <option value="fit-page">Fit Page</option>
+          </select>
+          <button id="btn-zoom-in" class="toolbar-btn" title="Zoom In" data-lucide="zoom-in"></button>
+          <div class="toolbar-divider"></div>
+          <button id="btn-fit-width" class="toolbar-btn" title="Fit Width" data-lucide="maximize"></button>
+          <button id="btn-fit-page" class="toolbar-btn" title="Fit Page" data-lucide="maximize-2"></button>
+        </div>
+        
+        <div class="toolbar-group toolbar-right">
+          <button id="btn-rotate-ccw" class="toolbar-btn" title="Rotate Counter-Clockwise" data-lucide="rotate-ccw"></button>
+          <button id="btn-rotate-cw" class="toolbar-btn" title="Rotate Clockwise" data-lucide="rotate-cw"></button>
+          <div class="toolbar-divider"></div>
+          <button id="btn-search" class="toolbar-btn" title="Search" data-lucide="search"></button>
+          <button id="btn-annotate" class="toolbar-btn" title="Annotations" data-lucide="pen-tool"></button>
+          <div class="toolbar-divider"></div>
+          <button id="btn-download" class="toolbar-btn" title="Download" data-lucide="download"></button>
+          <button id="btn-print" class="toolbar-btn" title="Print" data-lucide="printer"></button>
+          <button id="btn-install" class="toolbar-btn" title="Install App" data-lucide="download-cloud" hidden></button>
+        </div>
+      </div>
+      
+      <div class="toolbar-row toolbar-nav">
+        <div class="toolbar-group toolbar-left">
+          <button id="btn-first-page" class="toolbar-btn" title="First Page" data-lucide="chevrons-left"></button>
+          <button id="btn-prev-page" class="toolbar-btn" title="Previous Page" data-lucide="chevron-left"></button>
+        </div>
+        <div class="toolbar-group toolbar-center">
+          <span class="page-label">Page</span>
+          <input type="number" id="page-input" class="page-input" min="1" value="1">
+          <span class="page-label">of</span>
+          <span id="total-pages" class="page-total">0</span>
+          <div class="toolbar-divider"></div>
+          <button id="btn-next-page" class="toolbar-btn" title="Next Page" data-lucide="chevron-right"></button>
+          <button id="btn-last-page" class="toolbar-btn" title="Last Page" data-lucide="chevrons-right"></button>
+        </div>
+        <div class="toolbar-group toolbar-right">
+          <span id="doc-info" class="doc-info">No document</span>
+        </div>
+      </div>
+      
+      <!-- Annotation Toolbar (hidden by default) -->
+      <div id="annotation-toolbar" class="toolbar-row toolbar-annotation" hidden>
+        <div class="toolbar-group toolbar-center">
+          <button id="btn-highlight" class="toolbar-btn annotation-btn" title="Highlight" data-lucide="highlighter"></button>
+          <button id="btn-underline" class="toolbar-btn annotation-btn" title="Underline" data-lucide="underline"></button>
+          <button id="btn-strikeout" class="toolbar-btn annotation-btn" title="Strikeout" data-lucide="strikethrough"></button>
+          <button id="btn-note" class="toolbar-btn annotation-btn" title="Add Note" data-lucide="message-square"></button>
+          <div class="toolbar-divider"></div>
+          <input type="color" id="annotation-color" class="color-picker" value="#ffd700" title="Annotation Color">
+          <button id="btn-clear-annotations" class="toolbar-btn" title="Clear All Annotations" data-lucide="trash-2"></button>
+          <button id="btn-close-annotations" class="toolbar-btn" title="Close Annotation Tools" data-lucide="x"></button>
+        </div>
+      </div>
+    </header>
+    
+    <!-- Main Content Area -->
+    <div class="main-container">
+      <!-- Thumbnail Sidebar -->
+      <aside id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Thumbnails</span>
+          <button id="btn-close-sidebar" class="sidebar-close" data-lucide="x"></button>
+        </div>
+        <div id="thumbnail-container" class="thumbnail-container">
+          <!-- Thumbnails rendered here -->
+        </div>
+      </aside>
+      
+      <!-- Viewer -->
+      <main id="viewer" class="viewer">
+        <div id="drop-zone" class="drop-zone">
+          <div class="drop-zone-content">
+            <i data-lucide="file-text" class="drop-icon"></i>
+            <p class="drop-title">Drop a PDF file here</p>
+            <p class="drop-subtitle">or click Open to browse</p>
+            <button id="btn-drop-open" class="drop-btn">Open File</button>
+          </div>
+        </div>
+        <div id="viewer-container" class="viewer-container" hidden>
+          <div id="pages-wrapper" class="pages-wrapper"></div>
+        </div>
+        <div id="loading-overlay" class="loading-overlay" hidden>
+          <div class="spinner"></div>
+          <span class="loading-text">Loading PDF...</span>
+        </div>
+      </main>
+      
+      <!-- Search Panel -->
+      <aside id="search-panel" class="search-panel" hidden>
+        <div class="search-header">
+          <span class="search-title">Search</span>
+          <button id="btn-close-search" class="search-close" data-lucide="x"></button>
+        </div>
+        <div class="search-body">
+          <div class="search-input-wrapper">
+            <input type="text" id="search-input" class="search-input" placeholder="Search in document...">
+            <button id="btn-search-prev" class="search-nav-btn" title="Previous" data-lucide="arrow-up"></button>
+            <button id="btn-search-next" class="search-nav-btn" title="Next" data-lucide="arrow-down"></button>
+          </div>
+          <div class="search-options">
+            <label class="search-option">
+              <input type="checkbox" id="search-case">
+              <span>Case sensitive</span>
+            </label>
+            <label class="search-option">
+              <input type="checkbox" id="search-whole">
+              <span>Whole words</span>
+            </label>
+          </div>
+          <div id="search-results" class="search-results">
+            <span class="search-empty">Enter text to search</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+    
+    <!-- Status Bar -->
+    <footer id="status-bar" class="status-bar">
+      <span id="status-page">Page 0 of 0</span>
+      <span id="status-zoom">100%</span>
+      <span id="status-size">-</span>
+      <span id="status-words">-</span>
+    </footer>
+  </div>
+  
+  <!-- Install Prompt (custom) -->
+  <div id="install-prompt" class="install-prompt" hidden>
+    <div class="install-content">
+      <span class="install-text">Install PDF Reader Pro for offline use</span>
+      <button id="btn-install-accept" class="install-btn">Install</button>
+      <button id="btn-install-dismiss" class="install-dismiss">&times;</button>
+    </div>
+  </div>
+
+  <script src="js/pdf-engine.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/annotations.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(console.error);
+    }
+  </script>
+</body>
+</html>
