@@ -189,13 +189,6 @@ const PasswordModule = (function() {
 
   // ── Public API ───────────────────────────────────────────────────
 
-  /**
-   * Show the built-in password prompt modal.
-   *
-   * @param {Function} onSubmit   Called with the entered password string when the user clicks "Open" or presses Enter.
-   * @param {Function} onCancel   Called when the user clicks "Cancel" or the backdrop.
-   * @param {string}   [errorMsg] Optional error message to display (e.g. wrong-password feedback).
-   */
   function showPasswordPrompt(onSubmit, onCancel, errorMessage) {
     ensureModal();
     currentProvidePassword = onSubmit || null;
@@ -207,14 +200,10 @@ const PasswordModule = (function() {
     passwordInput.focus();
 
     if (onCancel) {
-      // Store cancel callback for backdrop / Escape key if needed later
       passwordModal._onCancel = onCancel;
     }
   }
 
-  /**
-   * Hide the password prompt modal and clear transient state.
-   */
   function hidePasswordPrompt() {
     if (passwordModal) {
       passwordModal.hidden = true;
@@ -226,28 +215,17 @@ const PasswordModule = (function() {
    * Attempt to load a PDF through PDFEngine, handling password-protected documents.
    *
    * @param {string|Object} source          PDF source (URL string or PDF.js getDocument parameter object).
-   * @param {Function}      onPasswordNeeded Optional callback invoked when a password is required.
-   *                                        Receives a `providePassword(password)` function.
    * @returns {Promise<boolean>} Resolves to `true` if the PDF loaded successfully, `false` otherwise.
    */
-  async function tryLoadWithPassword(source, onPasswordNeeded) {
-    // Probe first with pdfjsLib to detect password-protected PDFs without
-    // triggering PDFEngine.loadPDF's generic error alert.
-    let probeError = null;
+  async function tryLoadWithPassword(source) {
+    // First attempt: try loading without password
     try {
-      await pdfjsLib.getDocument(source).promise;
-    } catch (err) {
-      if (isPasswordException(err)) {
-        probeError = err;
-      } else {
-        // Non-password error — let PDFEngine handle it and its alert normally
-        return await PDFEngine.loadPDF(source);
-      }
-    }
-
-    if (!probeError) {
-      // No password required; load through the engine as usual
       return await PDFEngine.loadPDF(source);
+    } catch (err) {
+      if (!isPasswordException(err)) {
+        // Non-password error — PDFEngine already alerted the user
+        return false;
+      }
     }
 
     // Password required — enter retry loop
@@ -266,15 +244,12 @@ const PasswordModule = (function() {
 
         const passwordSource = buildSourceWithPassword(source, password);
 
-        // Validate the password with a probe before delegating to PDFEngine
-        pdfjsLib.getDocument(passwordSource).promise.then(function() {
-          PDFEngine.loadPDF(passwordSource).then(function(success) {
-            if (!resolved) {
-              resolved = true;
-              if (success) hidePasswordPrompt();
-              resolve(success);
-            }
-          });
+        PDFEngine.loadPDF(passwordSource).then(function(success) {
+          if (!resolved) {
+            resolved = true;
+            if (success) hidePasswordPrompt();
+            resolve(success);
+          }
         }).catch(function(err) {
           if (isPasswordException(err)) {
             // Wrong password — surface error and allow another attempt
@@ -286,10 +261,6 @@ const PasswordModule = (function() {
               passwordInput.value = '';
               passwordInput.focus();
             }
-            // Re-invoke callback so external UI can update as well
-            if (typeof onPasswordNeeded === 'function') {
-              onPasswordNeeded(providePassword);
-            }
           } else {
             if (!resolved) {
               resolved = true;
@@ -300,7 +271,6 @@ const PasswordModule = (function() {
         });
       }
 
-      // Show the built-in modal
       showPasswordPrompt(
         providePassword,
         function() {
@@ -310,13 +280,8 @@ const PasswordModule = (function() {
             resolve(false);
           }
         },
-        probeError.code === 'incorrectpassword' ? 'Incorrect password. Please try again.' : null
+        'This PDF requires a password to open.'
       );
-
-      // Give the app a hook into the retry flow
-      if (typeof onPasswordNeeded === 'function') {
-        onPasswordNeeded(providePassword);
-      }
     });
   }
 

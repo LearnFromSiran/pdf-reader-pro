@@ -131,21 +131,6 @@ const App = (function() {
       }
     }
   }
-    PDFEngine.setFilename(file.name);
-    if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-    currentBlobUrl = URL.createObjectURL(file);
-    const success = await PDFEngine.loadPDF(currentBlobUrl);
-
-    if (success) {
-      els.dropZone.hidden = true;
-      els.viewerContainer.hidden = false;
-      els.docInfo.textContent = file.name;
-      els.statusSize.textContent = formatBytes(file.size);
-      updateNavState(true);
-      generateThumbnails();
-      lucide.createIcons();
-    }
-  }
 
   function formatBytes(bytes) {
     if (bytes === 0) return '0 B';
@@ -213,18 +198,7 @@ const App = (function() {
       els.btnFormFill, els.btnSignature, els.btnDownload, els.btnPrint
     ];
     buttons.forEach(btn => btn.disabled = !enabled);
-    if (!enabled) els.pageInput.disabled = true;
-    else els.pageInput.disabled = false;
-  }
-    const buttons = [
-      els.btnFirstPage, els.btnPrevPage, els.btnNextPage, els.btnLastPage,
-      els.btnZoomIn, els.btnZoomOut, els.zoomSelect, els.btnFitWidth, els.btnFitPage,
-      els.btnRotateCw, els.btnRotateCcw, els.btnSearch, els.btnAnnotate,
-      els.btnDownload, els.btnPrint
-    ];
-    buttons.forEach(btn => btn.disabled = !enabled);
-    if (!enabled) els.pageInput.disabled = true;
-    else els.pageInput.disabled = false;
+    els.pageInput.disabled = !enabled;
   }
 
   function setupZoom() {
@@ -260,12 +234,6 @@ const App = (function() {
       }
     });
   }
-    els.btnZoomIn.addEventListener('click', () => PDFEngine.zoom(PDFEngine.getScale() + 0.25));
-    els.btnZoomOut.addEventListener('click', () => PDFEngine.zoom(PDFEngine.getScale() - 0.25));
-    els.zoomSelect.addEventListener('change', () => PDFEngine.zoom(els.zoomSelect.value === 'fit-width' || els.zoomSelect.value === 'fit-page' ? els.zoomSelect.value : parseFloat(els.zoomSelect.value)));
-    els.btnFitWidth.addEventListener('click', () => PDFEngine.zoom('fit-width'));
-    els.btnFitPage.addEventListener('click', () => PDFEngine.zoom('fit-page'));
-  }
 
   function setupRotation() {
     els.btnRotateCw.addEventListener('click', () => {
@@ -276,9 +244,6 @@ const App = (function() {
       PDFEngine.rotate(-90);
       setTimeout(() => reRenderFormsForVisible(), 300);
     });
-  }
-    els.btnRotateCw.addEventListener('click', () => PDFEngine.rotate(90));
-    els.btnRotateCcw.addEventListener('click', () => PDFEngine.rotate(-90));
   }
 
   function setupSearch() {

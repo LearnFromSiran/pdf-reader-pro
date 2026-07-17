@@ -67,7 +67,11 @@ const PDFEngine = (function() {
       return true;
     } catch (err) {
       console.error('PDF load error:', err);
-      alert('Failed to load PDF: ' + err.message);
+      // Let PasswordModule handle PasswordException; alert everything else
+      if (err && err.name === 'PasswordException') {
+        throw err;
+      }
+      alert('Failed to load PDF: ' + (err.message || err));
       return false;
     } finally {
       showLoading(false);
@@ -176,7 +180,8 @@ const PDFEngine = (function() {
   }
 
   function showLoading(show) {
-    document.getElementById('loading-overlay').hidden = !show;
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.hidden = !show;
   }
 
   function goToPage(pageNum) {

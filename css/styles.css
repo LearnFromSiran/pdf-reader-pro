@@ -473,6 +473,10 @@ html, body {
   z-index: 20;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 /* Loading */
 .loading-overlay {
   position: absolute;
@@ -753,7 +757,6 @@ html, body {
 }
 
 /* Responsive */
-@media (max-width: 1024px) {
 @media (max-width: 1024px) {
   .sidebar { position: absolute; left: 0; top: 0; bottom: 0; z-index: 90; box-shadow: 2px 0 10px rgba(0,0,0,0.3); }
   .sidebar.collapsed { transform: translateX(-100%); }
